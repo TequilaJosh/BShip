@@ -1,6 +1,7 @@
 ﻿
 
 using System.ComponentModel.Design;
+using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 
 namespace BattleShip
@@ -9,7 +10,7 @@ namespace BattleShip
     {
         //set boundries of the board
         public static int boardMin = 0;
-        public static int boardMax = 9;
+        public static int boardMax = 10;
         public static string LogFileName { get; set; }
         public static bool IsPlayer1Turn { get; set; }
 
@@ -60,78 +61,108 @@ namespace BattleShip
             player1Board = new int[10, 10];
             player2Board = new int[10, 10];
 
-
+            ComputerSetup(shipTypes, player2Ships);
             SetupPhase(shipTypes, player1Ships);
 
 
+
             //Method to doo the setup with the player
-            void SetupPhase(string[] shipnames, (string, List<(int, int)>, bool[], bool)[] playerShips)
+        void SetupPhase(string[] shipnames, (string, List<(int, int)>, bool[], bool)[] playerShips)
+        {
+
+            //ask players name and ask where they want their ships, this will call SetShipLocation to setup the ship
+            for (int i = 0; i < shipnames.Length; i++)
             {
-
-                //ask players name and ask where they want their ships, this will call SetShipLocation to setup the ship
-                for (int i = 0; i < shipnames.Length; i++)
+                (int, int)? playerResponse = null;
+                string? hOrVResponse = null;
+                PrintBoard(player1Board);
+                //loop for picking which direction to place the ship
+                do
                 {
-                    (int, int)? playerResponse = null;
-                    string? hOrVResponse = null;
-                    PrintBoard(player1Board);
-                    //loop for picking which direction to place the ship
-                    do
+                    LogData($"Would you like your {shipnames[i]} horizontal or vertical?: ", 2);
+                    hOrVResponse = LogData(Console.ReadLine().ToLower().Trim(),3);
+                    if (hOrVResponse.Length > 1 || string.IsNullOrEmpty(hOrVResponse) || !char.IsLetter(hOrVResponse[0]))
                     {
-                        LogData($"Would you like your {shipnames[i]} horizontal or vertical?: ", 2);
-                        hOrVResponse = LogData(Console.ReadLine().ToLower().Trim(),3);
-                        if (hOrVResponse.Length > 1 || string.IsNullOrEmpty(hOrVResponse) || !char.IsLetter(hOrVResponse[0]))
-                        {
-                            LogData("Please enter either h or v.",1);
-                            hOrVResponse = null;
-                        }
-                        else if (hOrVResponse != "v" && hOrVResponse != "h")
-                        {
-                            LogData("Please enter either h or v.",1);
-                            hOrVResponse = null;
-                        }
+                        LogData("Please enter either h or v.",1);
+                        hOrVResponse = null;
                     }
-                    while (hOrVResponse == null);
-                    do
+                    else if (hOrVResponse != "v" && hOrVResponse != "h")
                     {
-                        //ask player where they would like their ship and check if entry is valid
-                        LogData($"Where would you like to place your {shipnames[i]}?:",2);
-                        playerResponse = CheckResponse(LogData(Console.ReadLine().Trim(),3));
-                        if (playerResponse != null)
-                        {
-                            SetShipLocation(hOrVResponse, ((int, int))playerResponse, player1Ships, i, player1Board);
-                        }
+                        LogData("Please enter either h or v.",1);
+                        hOrVResponse = null;
                     }
-                    while (player1Ships[i].IsSunk) ;
                 }
+                while (hOrVResponse == null);
+                do
+                {
+                    //ask player where they would like their ship and check if entry is valid
+                    LogData($"Where would you like to place your {shipnames[i]}?:",2);
+                    playerResponse = CheckResponse(LogData(Console.ReadLine().Trim(),3));
+                    if (playerResponse != null)
+                    {
+                        SetShipLocation(hOrVResponse, ((int, int))playerResponse, player1Ships, i, player1Board);
+                    }
+                }
+                while (player1Ships[i].IsSunk) ;
             }
-
-
-            //method to check user feed back on squares, this will be used for set up and for attacking
-            (int, int)? CheckResponse(string response)
-            {
-                //Console.WriteLine((response[0] - 'a', int.Parse(char.ToString(response[1])) - 1));
-                //check response to see if it is a valid, checking for length of response and if its null, checking first char is letter and 2nd is a digit
-                if (response.Length != 2 || string.IsNullOrEmpty(response) || !char.IsLetter(response[0]) || !char.IsDigit(response[1]))
-                {
-                    LogData("Please enter a valid square in the format of [A1]", 1);
-                    return null;
-                }
-                else if (response[0] - 'a' > boardMax || response[0] - 'a' < boardMin || int.Parse(char.ToString(response[1])) - 1 > boardMax || int.Parse(char.ToString(response[1])) - 1 < boardMin)
-                {
-                    LogData("That square is outside the bounds of the board, please try again.", 1);
-                    return null;
-                }
-                else
-                {
-                    //get index of letter given to target proper row
-                    int letterIndex = response[0] - 'a';
-                    var tuplePeg = (int.Parse(char.ToString(response[1])) - 1, letterIndex);
-                    //Console.WriteLine(tuplePeg);
-                    return tuplePeg;
-                }
-            }
-
         }
+
+        /// method to check user feed back on squares, this will be used for set up and for attacking
+        (int, int)? CheckResponse(string response)
+        {
+            //Console.WriteLine((response[0] - 'a', int.Parse(char.ToString(response[1])) - 1));
+            //check response to see if it is a valid, checking for length of response and if its null, checking first char is letter and 2nd is a digit
+            if (response.Length > 3 || string.IsNullOrEmpty(response) || !char.IsLetter(response[0]) || !char.IsDigit(response.Substring(1)[0]))
+            {
+                LogData("Please enter a valid square in the format of [A1]", 1);
+                return null;
+            }
+            else if (response[0] - 'a' > boardMax || response[0] - 'a' < boardMin || int.Parse(char.ToString(response[1])) - 1 > boardMax || int.Parse(char.ToString(response[1])) - 1 < boardMin)
+            {
+                LogData("That square is outside the bounds of the board, please try again.", 1);
+                return null;
+            }
+            else if (response.Length == 2)
+            {
+                //get index of letter given to target proper row
+                int letterIndex = response[0] - 'a';
+                var tuplePeg = (int.Parse(char.ToString(response[1])) - 1, letterIndex);
+                //Console.WriteLine(tuplePeg);
+                return tuplePeg;
+            }
+            else 
+            {
+                //get index of letter given to target proper row
+                int letterIndex = response[0] - 'a';
+                var tuplePeg = (int.Parse(response.Substring(1)) - 1, letterIndex);
+                //Console.WriteLine(tuplePeg);
+                return tuplePeg;
+            }
+        }
+        }
+
+        /// <summary>
+        /// Handle how the computer sets up their board
+        /// </summary>
+        static void ComputerSetup(string[] shipNames, (string, List<(int, int)>, bool[], bool)[] shipTuple)
+        {
+            Random random = new Random();
+            string[] computerHOrVString = ["h", "v"];
+            (int, int) computerTargetCoord;
+            for (int i = 0; i < shipTuple.Length; i++)
+            {
+                string HOrV = computerHOrVString[random.Next(computerHOrVString.Length)];
+                do
+                {
+                    computerTargetCoord = (random.Next(0,9), random.Next(0,9));
+                    SetShipLocation(HOrV, computerTargetCoord, shipTuple, i, player2Board);
+                }
+                while (shipTuple[i].Item4 == true);
+                LogData($"The computer has placed their  {shipNames[i]}.", 1);
+                System.Threading.Thread.Sleep(2500);
+            }
+        }
+
         /*method that will check placement given by the user, confirm it is a valid placement
         and set the coords in the array*/
         static (string, List<(int, int)>, bool[], bool)[] SetShipLocation(string orientation, (int, int) targetCoord, (string, List<(int, int)>, bool[], bool)[] shipToSetup, int shipNumber, int[,] playerBoard)
@@ -139,10 +170,8 @@ namespace BattleShip
             //make tuple to hold temp values incase checks fail and placement is not valid
             //return temp is all checks pass, else pass old values back
             (string, List<(int, int)>, bool[], bool)[] tempTuple = shipToSetup;
-
             //create an list that will contain the coords for the ship location
             List<(int, int)> tempCoordsList = new();
-
             switch (orientation)
             {
                 case "h":
@@ -173,8 +202,7 @@ namespace BattleShip
                     {
                         LogData("Your ship can't be placed there, try again.",1);
                     }
-                    break;
-                    
+                    break;                    
                 case "v":
                     int targetVertEndOfship = targetCoord.Item2 + tempTuple[shipNumber].Item3.Length;
                     if (targetVertEndOfship <= boardMax)
@@ -212,6 +240,14 @@ namespace BattleShip
                 UpdateBoard(playerBoard, tempCoordsList[i].Item1, tempCoordsList[i].Item2);
             }
             return tempTuple;
+        }
+
+        /// <summary>
+        /// Controls how turns take place  and handles switching turns between players
+        /// </summary>
+        static void TakeTurns()
+        {
+
         }
 
         static void PrintBoard(int[,] boardToDraw)
@@ -357,6 +393,5 @@ namespace BattleShip
                 }
             }
         }
-
     }
 }
