@@ -63,11 +63,13 @@ namespace BattleShip
 
             ComputerSetup(shipTypes, player2Ships);
             SetupPhase(shipTypes, player1Ships);
-
+            IsPlayer1Turn = true;
+            TakeTurns(player1Ships, player2Ships);
+        }
 
 
             //Method to doo the setup with the player
-        void SetupPhase(string[] shipnames, (string, List<(int, int)>, bool[], bool)[] playerShips)
+        static void SetupPhase(string[] shipnames, (string, List<(int, int)>, bool[], bool)[] playerShips)
         {
 
             //ask players name and ask where they want their ships, this will call SetShipLocation to setup the ship
@@ -100,19 +102,19 @@ namespace BattleShip
                     playerResponse = CheckResponse(LogData(Console.ReadLine().Trim(),3));
                     if (playerResponse != null)
                     {
-                        SetShipLocation(hOrVResponse, ((int, int))playerResponse, player1Ships, i, player1Board);
+                        SetShipLocation(hOrVResponse, ((int, int))playerResponse, playerShips, i, player1Board);
                     }
                 }
-                while (player1Ships[i].IsSunk) ;
+                while (playerShips[i].Item4 == true) ;
             }
         }
 
         /// method to check user feed back on squares, this will be used for set up and for attacking
-        (int, int)? CheckResponse(string response)
+        static (int, int)? CheckResponse(string response)
         {
             //Console.WriteLine((response[0] - 'a', int.Parse(char.ToString(response[1])) - 1));
             //check response to see if it is a valid, checking for length of response and if its null, checking first char is letter and 2nd is a digit
-            if (response.Length > 3 || string.IsNullOrEmpty(response) || !char.IsLetter(response[0]) || !char.IsDigit(response.Substring(1)[0]))
+            if ((response.Length > 3 && response.Length <2) || string.IsNullOrEmpty(response) || !char.IsLetter(response[0]) || !char.IsDigit(response.Substring(1)[0]))
             {
                 LogData("Please enter a valid square in the format of [A1]", 1);
                 return null;
@@ -127,7 +129,7 @@ namespace BattleShip
                 //get index of letter given to target proper row
                 int letterIndex = response[0] - 'a';
                 var tuplePeg = (int.Parse(char.ToString(response[1])) - 1, letterIndex);
-                //Console.WriteLine(tuplePeg);
+                Console.WriteLine(tuplePeg);
                 return tuplePeg;
             }
             else 
@@ -135,11 +137,11 @@ namespace BattleShip
                 //get index of letter given to target proper row
                 int letterIndex = response[0] - 'a';
                 var tuplePeg = (int.Parse(response.Substring(1)) - 1, letterIndex);
-                //Console.WriteLine(tuplePeg);
+                Console.WriteLine(tuplePeg);
                 return tuplePeg;
             }
         }
-        }
+        
 
         /// <summary>
         /// Handle how the computer sets up their board
@@ -154,6 +156,7 @@ namespace BattleShip
                 string HOrV = computerHOrVString[random.Next(computerHOrVString.Length)];
                 do
                 {
+                    PrintBoard(player1Board);
                     computerTargetCoord = (random.Next(0,9), random.Next(0,9));
                     SetShipLocation(HOrV, computerTargetCoord, shipTuple, i, player2Board);
                 }
@@ -245,9 +248,28 @@ namespace BattleShip
         /// <summary>
         /// Controls how turns take place  and handles switching turns between players
         /// </summary>
-        static void TakeTurns()
+        static void TakeTurns((string, List<(int, int)>, bool[], bool)[] player1ShipArray, (string, List<(int, int)>, bool[], bool)[] player2ShipArray)
         {
-
+            while (IsPlayer1Turn)
+            {
+                LogData($"What square would you like to attack?: ", 2);
+                (int, int)? player1Response = CheckResponse(LogData(Console.ReadLine(), 1));
+                do
+                {
+                    (bool, string) targetSpaceReturnValues = CheckTargetSquare(((int, int))player1Response, player2Board, player2ShipArray);
+                    if (targetSpaceReturnValues.Item1 == true)
+                    {
+                        LogData($"Its a hit! you hit their {targetSpaceReturnValues.Item2}.",1);
+                        UpdateBoard(player2Board, ((int, int))player1Response);
+                    }
+                    else if (targetSpaceReturnValues.Item1 == false)
+                    {
+                        LogData("Swing and a miss! Player 2's turn!",1);
+                        //IsPlayer1Turn = false;
+                    }
+                }
+                while (player1Response == null);
+            }
         }
 
         static void PrintBoard(int[,] boardToDraw)
@@ -298,13 +320,13 @@ namespace BattleShip
         }
 
         //set values in the board to the proper value after a player selects a cell
-        static void UpdateBoard(int[,] selectedBoard, int xValue, int yValue)
+        static void UpdateBoard(int[,] selectedBoard, (int, int) target)
         {
             //check if values are inside the bounds
-            if (0 <= xValue && xValue <= 9 && 0 <= yValue && yValue <= 9)
+            if (0 <= target.Item1 && target.Item2 <= 9 && 0 <= target.Item1 && target.Item2 <= 9)
             {
                 bool viableTarget;
-                if (selectedBoard[xValue, yValue] == 0 || selectedBoard[xValue, yValue] == 3)
+                if (selectedBoard[target.Item1, target.Item2] == 0 || selectedBoard[target.Item1, target.Item2] == 3)
                 {
                     viableTarget = true;
                 }
@@ -315,13 +337,13 @@ namespace BattleShip
                 if (viableTarget)
                 {
                     //check if value was a hit or miss
-                    if (selectedBoard[xValue, yValue] == 3)
+                    if (selectedBoard[target.Item1, target.Item2] == 3)
                     {
-                        selectedBoard[xValue, yValue] = 2;
+                        selectedBoard[target.Item1, target.Item2] = 2;
                     }
                     else
                     {
-                        selectedBoard[xValue, yValue] = 1;
+                        selectedBoard[target.Item1, target.Item2] = 1;
 
                     }
                 }
@@ -361,6 +383,32 @@ namespace BattleShip
         {
             Random random = new Random();
             return (random.Next(0, 10), random.Next(0, 10));
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="target"></param>
+        /// <param name="targetBoard"></param>
+        /// <param name="playerShips"></param>
+        /// <returns></returns>
+        static (bool,string) CheckTargetSquare((int, int) target, int[,] targetBoard, (string, List<(int, int)>, bool[], bool)[] playerShips)
+        {
+            foreach (var ship in playerShips)
+            {
+                if (ship.Item2.Contains(target))
+                {
+                    for (int i = 0; i < ship.Item2.Count; i++)
+                    {
+                        if (ship.Item2[i] == target)
+                        {
+                            ship.Item3[i] = true;
+                            return (true, ship.Item1);
+                        }
+                    }
+                }
+            }
+            return (false, "");
         }
 
         /// <summary>
