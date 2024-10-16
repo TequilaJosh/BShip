@@ -1,6 +1,7 @@
 ﻿
 
 using System.ComponentModel.Design;
+using System.Linq;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 
@@ -13,18 +14,20 @@ namespace BattleShip
         public static int boardMax = 10;
         public static string LogFileName { get; set; }
         public static bool IsPlayer1Turn { get; set; }
+        public static bool IsPlayer1Human { get; set; }
+        public static bool IsGameOver { get; set; }
 
         //board borders to help player see what squares are which
         public static readonly string[] topBoardBorder = ["[1]", "[2]", "[3]", "[4]", "[5]", "[6]", "[7]", "[8]", "[9]", "[10]"];
         public static readonly string[] leftBoardBorder = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
         //setup player boards
-        public static int[,] player1Board {  get; set; }
+        public static int[,] player1Board { get; set; }
         public static int[,] player2Board { get; set; }
         public static void Main(string[] args)
         {
             LogFileName = $"Battleship_Log_{DateTime.Now.ToString("yyyyMMdd_hhmmss")}.txt";
-            
+
             string[] shipTypes = { "Carrier", "Battleship", "Destroyer", "Submarine", "Gunboat" };
             //setup arrays that can be incremented over to search for coordinates and houses bools for each spot 
             //these will be created new each new game
@@ -60,15 +63,18 @@ namespace BattleShip
             //setup array to handle the board
             player1Board = new int[10, 10];
             player2Board = new int[10, 10];
-
             ComputerSetup(shipTypes, player2Ships);
             SetupPhase(shipTypes, player1Ships);
             IsPlayer1Turn = true;
-            TakeTurns(player1Ships, player2Ships);
+            while (!IsGameOver)
+            {
+                
+                TakeTurns(player1Ships, player2Ships);
+            }
         }
 
 
-            //Method to doo the setup with the player
+        //Method to doo the setup with the player
         static void SetupPhase(string[] shipnames, (string, List<(int, int)>, bool[], bool)[] playerShips)
         {
 
@@ -82,15 +88,15 @@ namespace BattleShip
                 do
                 {
                     LogData($"Would you like your {shipnames[i]} horizontal or vertical?: ", 2);
-                    hOrVResponse = LogData(Console.ReadLine().ToLower().Trim(),3);
+                    hOrVResponse = LogData(Console.ReadLine().ToLower().Trim(), 3);
                     if (hOrVResponse.Length > 1 || string.IsNullOrEmpty(hOrVResponse) || !char.IsLetter(hOrVResponse[0]))
                     {
-                        LogData("Please enter either h or v.",1);
+                        LogData("Please enter either h or v.", 1);
                         hOrVResponse = null;
                     }
                     else if (hOrVResponse != "v" && hOrVResponse != "h")
                     {
-                        LogData("Please enter either h or v.",1);
+                        LogData("Please enter either h or v.", 1);
                         hOrVResponse = null;
                     }
                 }
@@ -98,14 +104,14 @@ namespace BattleShip
                 do
                 {
                     //ask player where they would like their ship and check if entry is valid
-                    LogData($"Where would you like to place your {shipnames[i]}?:",2);
-                    playerResponse = CheckResponse(LogData(Console.ReadLine().Trim(),3));
+                    LogData($"Where would you like to place your {shipnames[i]}?:", 2);
+                    playerResponse = CheckResponse(LogData(Console.ReadLine().Trim(), 3));
                     if (playerResponse != null)
                     {
                         SetShipLocation(hOrVResponse, ((int, int))playerResponse, playerShips, i, player1Board);
                     }
                 }
-                while (playerShips[i].Item4 == true) ;
+                while (playerShips[i].Item4 == true);
             }
         }
 
@@ -114,7 +120,13 @@ namespace BattleShip
         {
             //Console.WriteLine((response[0] - 'a', int.Parse(char.ToString(response[1])) - 1));
             //check response to see if it is a valid, checking for length of response and if its null, checking first char is letter and 2nd is a digit
-            if ((response.Length > 3 && response.Length <2) || string.IsNullOrEmpty(response) || !char.IsLetter(response[0]) || !char.IsDigit(response.Substring(1)[0]))
+            if ((response.Length > 3 || response.Length < 2))
+            {
+                
+                LogData("Please enter a valid square in the format of [A1]", 1);
+                return null;
+            }
+            else if (string.IsNullOrEmpty(response) || !char.IsLetter(response[0]) || !char.IsDigit(response.Substring(1)[0]))
             {
                 LogData("Please enter a valid square in the format of [A1]", 1);
                 return null;
@@ -132,7 +144,7 @@ namespace BattleShip
                 Console.WriteLine(tuplePeg);
                 return tuplePeg;
             }
-            else 
+            else
             {
                 //get index of letter given to target proper row
                 int letterIndex = response[0] - 'a';
@@ -141,7 +153,7 @@ namespace BattleShip
                 return tuplePeg;
             }
         }
-        
+
 
         /// <summary>
         /// Handle how the computer sets up their board
@@ -157,7 +169,7 @@ namespace BattleShip
                 do
                 {
                     PrintBoard(player1Board);
-                    computerTargetCoord = (random.Next(0,9), random.Next(0,9));
+                    computerTargetCoord = (random.Next(0, 9), random.Next(0, 9));
                     SetShipLocation(HOrV, computerTargetCoord, shipTuple, i, player2Board);
                 }
                 while (shipTuple[i].Item4 == true);
@@ -194,53 +206,57 @@ namespace BattleShip
                                         LogData($"Your {shipToSetup[shipNumber].Item1.ToString()} can't be placed there.", 1);
                                         return shipToSetup;
                                     }
-                                tempCoordsList.Add((targetCoord.Item1 + i, targetCoord.Item2));
                                 }
+                                tempCoordsList.Add((targetCoord.Item1 + i, targetCoord.Item2));
                             }
                         }
                         //update value in array of tuples to have new coordinates, set IsSunk to false to show that the ship is now afloat
+                        for (int i = 0;i < tempCoordsList.Count;i++)
+                        {
+                            playerBoard[tempCoordsList[i].Item1, tempCoordsList[i].Item2] = 3;
+                        }
                         tempTuple[shipNumber] = (tempTuple[shipNumber].Item1, tempCoordsList, tempTuple[shipNumber].Item3, false);
                     }
                     else
                     {
-                        LogData("Your ship can't be placed there, try again.",1);
+                        LogData("Your ship can't be placed there, try again.", 1);
                     }
-                    break;                    
+                    break;
                 case "v":
                     int targetVertEndOfship = targetCoord.Item2 + tempTuple[shipNumber].Item3.Length;
                     if (targetVertEndOfship <= boardMax)
                     {
                         if ((targetCoord.Item2 + shipToSetup[shipNumber].Item3.Length) <= boardMax)
-                    {
-                        //copy h case except handle cases for vertical placement
-                        if (targetCoord.Item2 <= (boardMax - shipToSetup[shipNumber].Item3.Length) && targetCoord.Item2 >= boardMin && targetCoord.Item1 <= boardMax && targetCoord.Item1 >= boardMin)
                         {
-                            for (int i = 0; i < shipToSetup[shipNumber].Item3.Length; i++)
+                            //copy h case except handle cases for vertical placement
+                            if (targetCoord.Item2 <= (boardMax - shipToSetup[shipNumber].Item3.Length) && targetCoord.Item2 >= boardMin && targetCoord.Item1 <= boardMax && targetCoord.Item1 >= boardMin)
                             {
+                                for (int i = 0; i < shipToSetup[shipNumber].Item3.Length; i++)
+                                {
                                     //check all other ships to see if current coordinate will intersect with any of them
                                     foreach (var ship in shipToSetup)
                                     {
                                         if (ship.Item2.Contains((targetCoord.Item1, targetCoord.Item2 + i)) && ship.Item1 != shipToSetup[shipNumber].Item1)
                                         {
-                                            LogData($"Your {shipToSetup[shipNumber].Item1.ToString()} can't be placed there.",1);
+                                            LogData($"Your {shipToSetup[shipNumber].Item1.ToString()} can't be placed there.", 1);
                                             return shipToSetup;
                                         }
                                     }
                                     tempCoordsList.Add((targetCoord.Item1, targetCoord.Item2 + i));
                                 }
                             }
-                        tempTuple[shipNumber] = (tempTuple[shipNumber].Item1, tempCoordsList, tempTuple[shipNumber].Item3, false);
+                            for (int i = 0; i < tempCoordsList.Count; i++)
+                            {
+                                playerBoard[tempCoordsList[i].Item1, tempCoordsList[i].Item2] = 3;
+                            }
+                            tempTuple[shipNumber] = (tempTuple[shipNumber].Item1, tempCoordsList, tempTuple[shipNumber].Item3, false);
                         }
                     }
                     else
                     {
-                        LogData("Your ship can't be placed there, try again.",1);
+                        LogData("Your ship can't be placed there, try again.", 1);
                     }
                     break;
-            }
-            for (int i = 0; i < tempCoordsList.Count; i++)
-            {
-                UpdateBoard(playerBoard, tempCoordsList[i].Item1, tempCoordsList[i].Item2);
             }
             return tempTuple;
         }
@@ -252,6 +268,7 @@ namespace BattleShip
         {
             while (IsPlayer1Turn)
             {
+                PrintBoard(player2Board);
                 LogData($"What square would you like to attack?: ", 2);
                 (int, int)? player1Response = CheckResponse(LogData(Console.ReadLine(), 1));
                 do
@@ -259,16 +276,44 @@ namespace BattleShip
                     (bool, string) targetSpaceReturnValues = CheckTargetSquare(((int, int))player1Response, player2Board, player2ShipArray);
                     if (targetSpaceReturnValues.Item1 == true)
                     {
-                        LogData($"Its a hit! you hit their {targetSpaceReturnValues.Item2}.",1);
+                        LogData($"Its a hit! you hit their {targetSpaceReturnValues.Item2}.", 1);
                         UpdateBoard(player2Board, ((int, int))player1Response);
+                        PrintBoard(player2Board);
+                        CheckForGameover(player2ShipArray);
                     }
                     else if (targetSpaceReturnValues.Item1 == false)
                     {
-                        LogData("Swing and a miss! Player 2's turn!",1);
-                        //IsPlayer1Turn = false;
+                        LogData("Swing and a miss! Player 2's turn!", 1);
+                        UpdateBoard(player2Board, ((int, int))player1Response);
+                        PrintBoard(player2Board);
+                        IsPlayer1Turn = false;
                     }
                 }
                 while (player1Response == null);
+            }
+            while (!IsPlayer1Turn)
+            {
+                PrintBoard(player1Board);
+                (int, int)? previousTarget;
+                (int, int)? player2Response = (ComputerLogic());
+                (bool, string) targetSpaceReturnValues = CheckTargetSquare(((int, int))player2Response, player1Board, player1ShipArray);
+
+                LogData($"Player 2 attacks {player2Response}", 2);
+                if (targetSpaceReturnValues.Item1 == true)
+                {
+                    previousTarget = player2Response;
+                    LogData($"Its a hit! you hit their {targetSpaceReturnValues.Item2}.", 1);
+                    UpdateBoard(player1Board, ((int, int))player2Response);
+                    PrintBoard(player1Board);
+                    CheckForGameover(player1ShipArray);
+                }
+                else if (targetSpaceReturnValues.Item1 == false)
+                {
+                    LogData("Swing and a miss! Player 2's turn!", 1);
+                    UpdateBoard(player1Board, ((int, int))player2Response);
+                    PrintBoard(player1Board);
+                    IsPlayer1Turn = true;
+                }
             }
         }
 
@@ -379,7 +424,7 @@ namespace BattleShip
             else return ("[_] ");
         }
 
-        static (int, int) ComputerLogic()
+        static (int, int)? ComputerLogic()
         {
             Random random = new Random();
             return (random.Next(0, 10), random.Next(0, 10));
@@ -392,7 +437,7 @@ namespace BattleShip
         /// <param name="targetBoard"></param>
         /// <param name="playerShips"></param>
         /// <returns></returns>
-        static (bool,string) CheckTargetSquare((int, int) target, int[,] targetBoard, (string, List<(int, int)>, bool[], bool)[] playerShips)
+        static (bool, string) CheckTargetSquare((int, int) target, int[,] targetBoard, (string, List<(int, int)>, bool[], bool)[] playerShips)
         {
             foreach (var ship in playerShips)
             {
@@ -439,6 +484,24 @@ namespace BattleShip
                     logTurns.WriteLine(args);
                     return args;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Check over the players ships and see if all of them are sunk, if they are announce the winner and reset the game
+        /// </summary>
+        /// <param name="playerShips"></param>
+        static void CheckForGameover((string, List<(int, int)>, bool[], bool)[] playerShips)
+        {
+            bool[] shipIsSunkBoolArray = new bool[playerShips.Length];
+            for (int i = 0; i < playerShips.Length; i++)
+            {
+                shipIsSunkBoolArray[i] = playerShips[i].Item4;
+            }
+            bool checkShipsAreAllSunk = shipIsSunkBoolArray.Any(item => item);
+            if (checkShipsAreAllSunk )
+            {
+                IsGameOver = true;
             }
         }
     }
