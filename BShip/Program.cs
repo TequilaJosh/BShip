@@ -1,5 +1,6 @@
 ﻿
 
+using System;
 using System.ComponentModel.Design;
 using System.Linq;
 using System.Net.NetworkInformation;
@@ -16,6 +17,11 @@ namespace BattleShip
         public static bool IsPlayer1Turn { get; set; }
         public static bool IsPlayer1Human { get; set; }
         public static bool IsGameOver { get; set; }
+        public static bool WasLastAHit { get; set; }
+        public static string Player1Direction { get; set; }
+        public static string Player2Direction { get; set; }
+        public static (int, int) Player1LastHit { get; set; }
+        public static (int,int) Player2LastHit { get; set; }
 
         //board borders to help player see what squares are which
         public static readonly string[] topBoardBorder = ["[1]", "[2]", "[3]", "[4]", "[5]", "[6]", "[7]", "[8]", "[9]", "[10]"];
@@ -63,8 +69,32 @@ namespace BattleShip
             //setup array to handle the board
             player1Board = new int[10, 10];
             player2Board = new int[10, 10];
-            ComputerSetup(shipTypes, player2Ships);
-            SetupPhase(shipTypes, player1Ships);
+            LogData($"Would you like to Play?: ", 2);
+            string isPlayerPlaying = LogData(Console.ReadLine(), 3).Trim().ToLower();
+
+            //check answer of player
+            while (true)
+            {
+                if(isPlayerPlaying.Equals("yes"))
+                {
+                    ComputerSetup(shipTypes, player2Ships);
+                    SetupPhase(shipTypes, player1Ships);
+                    break;
+                }
+                else if (isPlayerPlaying.Equals("no"))
+                {
+                    ComputerSetup(shipTypes, player1Ships);
+                    ComputerSetup(shipTypes, player2Ships);
+                    break ;
+                }
+                else
+                {
+                    LogData("I didn't understand that, would you like to play???: ",1);
+                    isPlayerPlaying = LogData(Console.ReadLine(),3).Trim().ToLower();
+                }
+            }
+
+            
             IsPlayer1Turn = true;
             while (!IsGameOver)
             {
@@ -268,16 +298,46 @@ namespace BattleShip
         {
             while (IsPlayer1Turn)
             {
-                PrintBoard(player2Board);
-                LogData($"What square would you like to attack?: ", 2);
-                (int, int)? player1Response = CheckResponse(LogData(Console.ReadLine(), 1));
-                do
+                if (IsPlayer1Human)
                 {
+                    PrintBoard(player2Board);
+                    LogData($"What square would you like to attack?: ", 2);
+                    (int, int)? player1Response = CheckResponse(LogData(Console.ReadLine(), 1));
+                    do
+                    {
+                        (bool, string) targetSpaceReturnValues = CheckTargetSquare(((int, int))player1Response, player2Board, player2ShipArray);
+                        if (targetSpaceReturnValues.Item1 == true)
+                        {
+                            LogData($"Its a hit! you hit their {targetSpaceReturnValues.Item2}.", 1);
+                            UpdateBoard(player2Board, ((int, int))player1Response);
+                            PrintBoard(player2Board);
+                            CheckForGameover(player2ShipArray);
+                        }
+                        else if (targetSpaceReturnValues.Item1 == false)
+                        {
+                            LogData("Swing and a miss! Player 2's turn!", 1);
+                            UpdateBoard(player2Board, ((int, int))player1Response);
+                            PrintBoard(player2Board);
+                            IsPlayer1Turn = false;
+                        }
+                    }
+                    while (player1Response == null);
+                }
+                else
+                {
+                    PrintBoard(player2Board);
+                    (int, int)? previousTarget;
+                    (int, int)? player1Response = (ComputerLogic());
                     (bool, string) targetSpaceReturnValues = CheckTargetSquare(((int, int))player1Response, player2Board, player2ShipArray);
+
+                    LogData($"Player 1 attacks {player1Response}", 2);
                     if (targetSpaceReturnValues.Item1 == true)
                     {
+                        previousTarget = player1Response;
                         LogData($"Its a hit! you hit their {targetSpaceReturnValues.Item2}.", 1);
-                        UpdateBoard(player2Board, ((int, int))player1Response);
+                        UpdateBoard(player1Board, ((int, int))player1Response);
+                        WasLastAHit = true;
+                        Player1LastHit = ((int, int))player1Response;
                         PrintBoard(player2Board);
                         CheckForGameover(player2ShipArray);
                     }
@@ -286,10 +346,10 @@ namespace BattleShip
                         LogData("Swing and a miss! Player 2's turn!", 1);
                         UpdateBoard(player2Board, ((int, int))player1Response);
                         PrintBoard(player2Board);
-                        IsPlayer1Turn = false;
+                        WasLastAHit = false;
+                        IsPlayer1Turn = true;
                     }
                 }
-                while (player1Response == null);
             }
             while (!IsPlayer1Turn)
             {
@@ -304,6 +364,8 @@ namespace BattleShip
                     previousTarget = player2Response;
                     LogData($"Its a hit! you hit their {targetSpaceReturnValues.Item2}.", 1);
                     UpdateBoard(player1Board, ((int, int))player2Response);
+                    WasLastAHit = true;
+                    Player2LastHit = ((int,int))player2Response;
                     PrintBoard(player1Board);
                     CheckForGameover(player1ShipArray);
                 }
@@ -312,6 +374,7 @@ namespace BattleShip
                     LogData("Swing and a miss! Player 2's turn!", 1);
                     UpdateBoard(player1Board, ((int, int))player2Response);
                     PrintBoard(player1Board);
+                    WasLastAHit = false;
                     IsPlayer1Turn = true;
                 }
             }
@@ -424,14 +487,46 @@ namespace BattleShip
             else return ("[_] ");
         }
 
+
+        /// <summary>
+        /// Controls computer logic, it can check the player board but can't cheat, it will only look for values thatdesignate a hit square
+        /// looking for only hit spots will help not run into problems when 2 computers are fighting
+        /// it will target near squares to recent hits to attempt to search out the player ships and act smart like other players would
+        /// </summary>
+        /// <returns></returns>
         static (int, int)? ComputerLogic()
         {
-            Random random = new Random();
-            return (random.Next(0, 10), random.Next(0, 10));
+            if (WasLastAHit) //if a hit was successful, target nearby ranges
+            {
+                Random random = new Random();
+                string[] directions = ["North", "South", "East", "West"];
+                if (IsPlayer1Turn && !IsPlayer1Human)
+                {   
+                    (int, int) newTarget = Player1LastHit;
+                    do
+                    {
+                        Player1Direction = directions[random.Next(directions.Length)];
+                        newTarget = MoveDirection(newTarget, Player1Direction);
+                    }
+                    while (SymbolCheck(player2Board[newTarget.Item1, newTarget.Item2]) == "[_] " || SymbolCheck(player2Board[newTarget.Item1, newTarget.Item2]) == "[_] ");
+                }
+                else
+                {
+                    (int, int) newTarget = Player2LastHit;
+                    Player2Direction = directions[random.Next(directions.Length)];
+                    return (MoveDirection(newTarget, Player2Direction));
+                }
+            }
+            else
+            {
+                Random random = new Random();
+                return (random.Next(0, 10), random.Next(0, 10));
+            }
         }
 
         /// <summary>
-        /// 
+        /// check the target square and return true if it is  ahit and what ship was hit
+        /// if not a hit returns false and an empty string
         /// </summary>
         /// <param name="target"></param>
         /// <param name="targetBoard"></param>
@@ -439,6 +534,7 @@ namespace BattleShip
         /// <returns></returns>
         static (bool, string) CheckTargetSquare((int, int) target, int[,] targetBoard, (string, List<(int, int)>, bool[], bool)[] playerShips)
         {
+            int shipCount = 0;
             foreach (var ship in playerShips)
             {
                 if (ship.Item2.Contains(target))
@@ -448,10 +544,16 @@ namespace BattleShip
                         if (ship.Item2[i] == target)
                         {
                             ship.Item3[i] = true;
+                            if (ship.Item3.All(item => item))
+                            {
+                                playerShips[shipCount].Item4 = true;
+                            }
                             return (true, ship.Item1);
                         }
                     }
                 }
+                shipCount++;
+
             }
             return (false, "");
         }
@@ -503,6 +605,34 @@ namespace BattleShip
             {
                 IsGameOver = true;
             }
+        }
+
+        static (int,int) MoveDirection((int,int) oldTarget, string direction)
+        {
+            switch (direction)
+            {
+                case "North":
+                    if (oldTarget.Item2 == 0)
+                    { MoveDirection(oldTarget, "South"); }
+                    else {oldTarget.Item2 -= 1; }
+                    break;
+                case "South":
+                    if (oldTarget.Item2 == 9)
+                    { MoveDirection(oldTarget, "North"); }
+                    else { oldTarget.Item2 += 1; }
+                    break;
+                case "East":
+                    if (oldTarget.Item1 == 9)
+                    { MoveDirection(oldTarget, "West"); }
+                    else { oldTarget.Item1 += 1; }
+                    break;
+                case "West":
+                    if (oldTarget.Item1 == 0)
+                    { MoveDirection(oldTarget, "East"); }
+                    else { oldTarget.Item1 -= 1; }
+                    break;
+            }
+            return (oldTarget);
         }
     }
 }
