@@ -13,11 +13,13 @@ namespace BattleShip
         //set boundries of the board
         public static int boardMin = 0;
         public static int boardMax = 10;
+        public static int GameSpeed = 5000;
         public static string LogFileName { get; set; }
         public static bool IsPlayer1Turn { get; set; } = false;
         public static bool IsPlayer1Human { get; set; }
         public static bool IsGameOver { get; set; } = false;
-        public static bool WasLastAHit { get; set; }
+        public static bool WasLastAHitP1 { get; set; }
+        public static bool WasLastAHitP2 { get; set; }
         public static string Player1Direction { get; set; }
         public static string Player2Direction { get; set; }
         public static (int, int) Player1LastHit { get; set; }
@@ -70,6 +72,14 @@ namespace BattleShip
             //setup array to handle the board
             player1Board = new int[10, 10];
             player2Board = new int[10, 10];
+
+            int gamesToWatch = 1;
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.WriteLine(@" ____   __  ____  ____  __    ____  ____  _  _  __  ____");
+            Console.WriteLine(@"(  _ \ / _\(_  _)(_  _)(  )  (  __)/ ___)/ )( \(  )(  _ \");
+            Console.WriteLine(@" ) _ (/    \ )(    )(  / (_/\ ) _) \___ \) __ ( )(  ) __/");
+            Console.WriteLine(@"(____/\_/\_/(__)  (__) \____/(____)(____/\_)(_/(__)(__)  ");
+            //see if player wants to play or if they just want to watch 2 computers fight it out
             LogData($"Would you like to Play?: ", 2);
             string isPlayerPlaying = LogData(Console.ReadLine(), 3).Trim().ToLower();
 
@@ -80,7 +90,7 @@ namespace BattleShip
                 {
                     
                     LogData($"What is your name human?: ", 2);
-                    player1Stats.Name = LogData(Console.ReadLine(), 3);
+                    player1Stats.Name = LogData(Console.ReadLine().Trim(), 3);
                     player2Stats.Name = "Computer Player";
                     ComputerSetup(shipTypes, player2Ships, player2Board);
                     IsPlayer1Turn = true;
@@ -90,6 +100,10 @@ namespace BattleShip
                 }
                 else if (isPlayerPlaying.Equals("no") || isPlayerPlaying.Equals("n"))
                 {
+                    
+                    LogData("How many games should the computers play?: ", 2);
+                    string matchsToPlay = LogData(Console.ReadLine().Trim(), 3);
+                    int.TryParse(matchsToPlay, out gamesToWatch);
                     IsPlayer1Turn = true;
                     player1Stats.Name = "Computer Player 1";
                     player2Stats.Name = "Computer Player 2";
@@ -108,8 +122,9 @@ namespace BattleShip
             
             while (!IsGameOver)
             {
-                
-                TakeTurns(player1Ships, player2Ships, player1Stats, player2Stats);
+                TakeTurns(player1Ships, player2Ships,ref player1Stats);
+                TakeTurns(player1Ships, player2Ships, ref player2Stats);
+                //TakeTurns(player1Ships, player2Ships, player1Stats, player2Stats);
             }
         }
 
@@ -214,7 +229,7 @@ namespace BattleShip
                 }
                 while (shipTuple[i].Item4 == true);
                 LogData($"The computer has placed their {shipNames[i]}.", 1);
-                System.Threading.Thread.Sleep(1000);
+                System.Threading.Thread.Sleep(GameSpeed);
             }
         }
 
@@ -305,19 +320,20 @@ namespace BattleShip
         /// Controls how turns take place  and handles switching turns between players
         /// also logs data for turns and keeps track of turn info
         /// </summary>
-        static void TakeTurns((string, List<(int, int)>, bool[], bool)[] player1ShipArray, (string, List<(int, int)>, bool[], bool)[] player2ShipArray, (string, int,int,int) player1Stats, (string, int, int, int) player2Stats)
+        static void TakeTurns((string, List<(int, int)>, bool[], bool)[] player1ShipArray, (string, List<(int, int)>, bool[], bool)[] player2ShipArray, ref (string, int, int, int) playerStats)
         {
-            while (IsPlayer1Turn)
+            
+            while (IsPlayer1Turn && !IsGameOver)
             {
                 if (IsPlayer1Human)
                 {
                     PrintBoard(player2Board);
                     (int,int)? player1Response = null;
-                    LogData($"It is {player1Stats.Item1}'s turn! they are on turn {player1Stats.Item2}! their hit to miss ratio is {player1Stats.Item3}/{player1Stats.Item4}.", 3);
+                    LogData($"It is {playerStats.Item1}'s turn! they are on turn {playerStats.Item2}! their hit to miss ratio is {playerStats.Item3}/{playerStats.Item4}.", 3);
                     do
                     {
                         LogData($"What square would you like to attack?: ", 2);
-                        player1Response = CheckResponse(LogData(Console.ReadLine(), 1));
+                        player1Response = CheckResponse(LogData(Console.ReadLine().Trim().ToLower(), 1));
                         if (player1Response != null)
                         {
                             (int, int) tempIntTuple = ((int,int))player1Response;
@@ -329,38 +345,40 @@ namespace BattleShip
                         }
                     }
                     while (player1Response == null);
-                        do
+                    do
                     {
                         
                         (bool, string) targetSpaceReturnValues = CheckTargetSquare(((int, int))player1Response, player2Board, player2ShipArray);
                         if (targetSpaceReturnValues.Item1 == true)
                         {
                             LogData($"Its a hit at {player1Response.ToString()}! you hit their {targetSpaceReturnValues.Item2}.", 1);
-                            System.Threading.Thread.Sleep(2000);
+                            System.Threading.Thread.Sleep(GameSpeed);
                             UpdateBoard(player2Board, ((int, int))player1Response);
                             PrintBoard(player2Board);
-                            player1Stats.Item2 += 1;
-                            player1Stats.Item3 += 1;
-                            LogData(player1Stats.ToString(), 3);
-                            CheckForGameover(player2ShipArray, player2Stats);
+                            playerStats.Item2++;
+                            playerStats.Item3++;
+                            LogData(playerStats.ToString(), 3);
+                            CheckForGameover(player2ShipArray, playerStats);
+                            
                         }
                         else if (targetSpaceReturnValues.Item1 == false)
                         {
                             LogData("Swing and a miss! Player 2's turn!", 1);
-                            System.Threading.Thread.Sleep(2000);
+                            System.Threading.Thread.Sleep(GameSpeed);
                             UpdateBoard(player2Board, ((int, int))player1Response);
                             PrintBoard(player2Board);
-                            player1Stats.Item2 += 1;
-                            player1Stats.Item4 += 1;
-                            LogData(player1Stats.ToString(), 3);
+                            playerStats.Item2++;
+                            playerStats.Item4++;
+                            LogData(playerStats.ToString(), 3);
                             IsPlayer1Turn = false;
+                            
                         }
                     }
                     while (player1Response == null);
                 }
                 else
                 {
-                    LogData($"It is {player1Stats.Item1}'s turn! they are on turn {player1Stats.Item2}! their hit to miss ratio is {player1Stats.Item3}/{player1Stats.Item4}.", 3);
+                    LogData($"It is {playerStats.Item1}'s turn! they are on turn {playerStats.Item2}! their hit to miss ratio is {playerStats.Item3}/{playerStats.Item4}.", 3);
                     PrintBoard(player2Board);
                     (int, int)? previousTarget;
                     (int, int)? player1Response = (ComputerLogic());
@@ -372,82 +390,80 @@ namespace BattleShip
                         previousTarget = player1Response;
                         UpdateBoard(player1Board, ((int, int))player1Response);
                         PrintBoard(player2Board);
-                        LogData($"Player 1 attacks {player1Response}", 2);
-                        LogData($"Its a hit at {player1Response.ToString()}! you hit their {targetSpaceReturnValues.Item2}.", 1);
-                        System.Threading.Thread.Sleep(2000);
-                        WasLastAHit = true;
+                        LogData($"Player 1 attacks {leftBoardBorder[player1Response.Value.Item2]}{player1Response.Value.Item1 + 1}", 1);
+                        LogData($"Its a hit at {leftBoardBorder[player1Response.Value.Item2]}{player1Response.Value.Item1 + 1}! you hit their {targetSpaceReturnValues.Item2}.", 1);
+                        System.Threading.Thread.Sleep(GameSpeed);
+                        WasLastAHitP1 = true;
                         Player1LastHit = ((int, int))player1Response;
-                        player1Stats.Item2 += 1;
-                        player1Stats.Item3 += 1;
-                        LogData(player1Stats.ToString(), 3);
-                        System.Threading.Thread.Sleep(2500);
-                        CheckForGameover(player2ShipArray, player2Stats);
+                        playerStats.Item2++;
+                        playerStats.Item3++;
+                        LogData(playerStats.ToString(), 3);
+                        CheckForGameover(player2ShipArray, playerStats);
                         
                     }
                     else if (targetSpaceReturnValues.Item1 == false)
                     {
                         UpdateBoard(player2Board, ((int, int))player1Response);
                         PrintBoard(player2Board);
-                        LogData($"Player 1 attacks {player1Response}", 2);
+                        LogData($"Player 1 attacks {leftBoardBorder[player1Response.Value.Item2]}{player1Response.Value.Item1 + 1}", 1);
                         LogData("Swing and a miss! Player 2's turn!", 1);
-                        player1Stats.Item2 += 1;
-                        player1Stats.Item4 += 1;
-                        LogData(player1Stats.ToString(), 3);
-                        System.Threading.Thread.Sleep(2500);
-                        WasLastAHit = false;
+                        playerStats.Item2++;
+                        playerStats.Item4++;
+                        LogData(playerStats.ToString(), 3);
+                        System.Threading.Thread.Sleep(GameSpeed);
+                        WasLastAHitP1 = false;
                         IsPlayer1Turn = false;
                         
                     }
                 }
             }
-            while (!IsPlayer1Turn)
+            while (!IsPlayer1Turn && !IsGameOver)
             {
-                LogData($"It is {player2Stats.Item1}'s turn! they are on turn {player2Stats.Item2}! their hit to miss ratio is {player2Stats.Item3}/{player2Stats.Item4}.", 3);
+                LogData($"It is {playerStats.Item1}'s turn! they are on turn {playerStats.Item2}! their hit to miss ratio is {playerStats.Item3}/{playerStats.Item4}.", 3);
                 PrintBoard(player1Board);
                 (int, int)? previousTarget;
                 (int, int)? player2Response = (ComputerLogic());
                 (bool, string) targetSpaceReturnValues = CheckTargetSquare(((int, int))player2Response, player1Board, player1ShipArray);
 
-                
+
                 if (targetSpaceReturnValues.Item1 == true)
                 {
                     previousTarget = player2Response;
                     UpdateBoard(player1Board, ((int, int))player2Response);
                     PrintBoard(player1Board);
-                    LogData($"Player 2 attacks {player2Response}", 2);
-                    LogData($"Its a hit at {player2Response.ToString()}! you hit their {targetSpaceReturnValues.Item2}.", 1);
-                    System.Threading.Thread.Sleep(2000);
-                    WasLastAHit = true;
-                    Player2LastHit = ((int,int))player2Response;
-                    player2Stats.Item2 += 1;
-                    player2Stats.Item3 += 1;
-                    LogData(player2Stats.ToString(), 3);
-                    System.Threading.Thread.Sleep(2500);
-                    CheckForGameover(player1ShipArray, player1Stats);
-                    
+                    LogData($"Player 2 attacks {leftBoardBorder[player2Response.Value.Item2]}{player2Response.Value.Item1 + 1}", 1);
+                    LogData($"Its a hit at {leftBoardBorder[player2Response.Value.Item2]}{player2Response.Value.Item1 + 1}! you hit their {targetSpaceReturnValues.Item2}.", 1);
+                    System.Threading.Thread.Sleep(GameSpeed);
+                    WasLastAHitP2 = true;
+                    Player2LastHit = ((int, int))player2Response;
+                    playerStats.Item2++;
+                    playerStats.Item3++;
+                    LogData(playerStats.ToString(), 3);
+                    CheckForGameover(player1ShipArray, playerStats);
+
                 }
                 else if (targetSpaceReturnValues.Item1 == false)
                 {
                     UpdateBoard(player1Board, ((int, int))player2Response);
                     PrintBoard(player1Board);
-                    LogData($"Player 2 attacks {player2Response}", 2);
+                    LogData($"Player 2 attacks {leftBoardBorder[player2Response.Value.Item2]}{player2Response.Value.Item1 + 1}", 1);
                     LogData("Swing and a miss! Player 1's turn!", 1);
-                    System.Threading.Thread.Sleep(2000);
-                    player2Stats.Item2 += 1;
-                    player2Stats.Item4 += 1;
-                    LogData(player2Stats.ToString(), 3);
-                    System.Threading.Thread.Sleep(2500);
-                    WasLastAHit = false;
+                    System.Threading.Thread.Sleep(GameSpeed);
+                    playerStats.Item2++;
+                    playerStats.Item4++;
+                    LogData(playerStats.ToString(), 3);
+                    WasLastAHitP2 = false;
                     IsPlayer1Turn = true;
-                    
+
                 }
-            }
+            }  
         }
 
         static void PrintBoard(int[,] boardToDraw)
         {
             //print out the board between turns to show the progression of the game
             Console.Clear();
+            Console.ForegroundColor = ConsoleColor.Gray;
             Console.WriteLine(@" ____   __  ____  ____  __    ____  ____  _  _  __  ____");
             Console.WriteLine(@"(  _ \ / _\(_  _)(_  _)(  )  (  __)/ ___)/ )( \(  )(  _ \");
             Console.WriteLine(@" ) _ (/    \ )(    )(  / (_/\ ) _) \___ \) __ ( )(  ) __/");
@@ -466,14 +482,16 @@ namespace BattleShip
                     Console.Write($"[{i + 1}] ");
                 }
                 else { Console.WriteLine($"[{i + 1}] "); }
+
             }
             for (int i = 0; i < 10; i++) //handles new row
             {
                 if (i < 9)
                 {
+                    Console.ForegroundColor = ConsoleColor.Gray;
                     Console.Write($"[{leftBoardBorder[i]}] ");
                 }
-                else { Console.Write($"[{leftBoardBorder[i]}] "); }
+                else { Console.ForegroundColor = ConsoleColor.Gray; Console.Write($"[{leftBoardBorder[i]}] "); }
 
                 for (int j = 0; j < 10; j++)
                 {
@@ -485,7 +503,7 @@ namespace BattleShip
                     else
                     {
                         Console.WriteLine(SymbolCheck(boardToDraw[j, i]));
-
+                        Console.ForegroundColor = ConsoleColor.Gray;
                     }
                 }
             }
@@ -527,28 +545,33 @@ namespace BattleShip
         {
             if (arrayValue == 0)
             {
+                Console.ForegroundColor = ConsoleColor.Gray;
                 return ("[_] ");
             }
             else if (arrayValue == 1)
             {
+                Console.ForegroundColor = ConsoleColor.Blue;
                 return ("[0] ");
             }
             else if (arrayValue == 2)
             {
+                Console.ForegroundColor= ConsoleColor.Red;
                 return ("[X] ");
             }
             else if (arrayValue == 3)
             {
                 if (IsPlayer1Turn && IsPlayer1Human) //hide the enemies ships
                 {
+                    Console.ForegroundColor = ConsoleColor.Gray;
                     return ("[_] ");
                 }
                 else
                 {
+                    Console.ForegroundColor = ConsoleColor.White;
                     return ("[V] ");
                 }
             }
-            else return ("[_] ");
+            else Console.ForegroundColor = ConsoleColor.Gray;return ("[_] ");
         }
 
 
@@ -560,7 +583,7 @@ namespace BattleShip
         /// <returns></returns>
         static (int, int)? ComputerLogic()
         {
-            if (WasLastAHit) //if a hit was successful, target nearby ranges
+            if (WasLastAHitP1 || WasLastAHitP2) //if a hit was successful, target nearby ranges
             {
                 Random random = new Random();
                 string[] directions = ["North", "South", "East", "West"];
@@ -572,7 +595,7 @@ namespace BattleShip
                         Player1Direction = directions[random.Next(directions.Length)];
                         newTarget = MoveDirection(newTarget, Player1Direction);
                     }
-                    while (SymbolCheck(player2Board[newTarget.Item1, newTarget.Item2]) != "[_] ");
+                    while ((player2Board[newTarget.Item1, newTarget.Item2] == 1 || player2Board[newTarget.Item1, newTarget.Item2] == 2));
                     return (newTarget);
                 }
                 else
@@ -583,7 +606,7 @@ namespace BattleShip
                         Player2Direction = directions[random.Next(directions.Length)];
                         newTarget = (MoveDirection(newTarget, Player2Direction));
                     }
-                    while (SymbolCheck(player1Board[newTarget.Item1, newTarget.Item2]) != "[_] ");
+                    while ((player1Board[newTarget.Item1, newTarget.Item2] == 1 || player1Board[newTarget.Item1, newTarget.Item2] == 2));
                     return (newTarget);
                 }
             }
@@ -596,7 +619,7 @@ namespace BattleShip
                     {
                         newTarget = (random.Next(0, 10), random.Next(0, 10));
                     }
-                    while (SymbolCheck(player2Board[newTarget.Item1, newTarget.Item2]) != "[_] ");
+                    while (player2Board[newTarget.Item1, newTarget.Item2] == 1 || player2Board[newTarget.Item1, newTarget.Item2] == 2);
                 }
                 else
                 {
@@ -604,7 +627,7 @@ namespace BattleShip
                     {
                         newTarget = (random.Next(0, 10), random.Next(0, 10));
                     }
-                    while (SymbolCheck(player1Board[newTarget.Item1, newTarget.Item2]) != "[_] ");
+                    while ((player1Board[newTarget.Item1, newTarget.Item2] == 1 || player1Board[newTarget.Item1, newTarget.Item2] == 2));
                 }
                 return (newTarget);
             }
@@ -680,19 +703,21 @@ namespace BattleShip
         /// Check over the players ships and see if all of them are sunk, if they are announce the winner and reset the game
         /// </summary>
         /// <param name="playerShips"></param>
-        static void CheckForGameover((string, List<(int, int)>, bool[], bool)[] playerShips, (string, int, int, int) activePlayer)
+        static void CheckForGameover((string, List<(int, int)>, bool[], bool)[] playerShips, (string, int, int, int) playerstats)
         {
             bool[] shipIsSunkBoolArray = new bool[playerShips.Length];
             for (int i = 0; i < playerShips.Length; i++)
             {
                 shipIsSunkBoolArray[i] = playerShips[i].Item4;
             }
-            bool checkShipsAreAllSunk = shipIsSunkBoolArray.Any(item => item);
-            if (checkShipsAreAllSunk )
+            bool checkShipsAreAllSunk = shipIsSunkBoolArray.All(item => item);
+            if (checkShipsAreAllSunk)
             {
                 IsGameOver = true;
-                LogData($"{activePlayer.Item1} Has won! they did this in {activePlayer.Item2} turns with a hit% of {activePlayer.Item3/activePlayer.Item4}", 2);
+                LogData($"{playerstats.Item1} Has won! they did this in {playerstats.Item2} turns with a hit% of {playerstats.Item3/ playerstats.Item4}", 2);
             }
+
+
         }
 
         static (int,int) MoveDirection((int,int) oldTarget, string direction)
