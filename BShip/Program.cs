@@ -13,10 +13,11 @@ namespace BattleShip
         //set boundries of the board
         public static int boardMin = 0;
         public static int boardMax = 10;
-        public static int GameSpeed = 5000;
+        public static int GameSpeed = 1000;
+        public static int GamesToWatch { get; set; } = 1;
         public static string LogFileName { get; set; }
         public static bool IsPlayer1Turn { get; set; } = false;
-        public static bool IsPlayer1Human { get; set; }
+        public static bool IsPlayer1Human { get; set; } = true;
         public static bool IsGameOver { get; set; } = false;
         public static bool WasLastAHitP1 { get; set; }
         public static bool WasLastAHitP2 { get; set; }
@@ -35,96 +36,127 @@ namespace BattleShip
         public static int[,] player2Board { get; set; }
         public static void Main(string[] args)
         {
-            LogFileName = $"Battleship_Log_{DateTime.Now.ToString("yyyyMMdd_hhmmss")}.txt";
+            while (GamesToWatch > 0)
+            {
+                //Set all values to base to reset the game each iteration
+                IsPlayer1Turn = false;
+                WasLastAHitP1 = false;
+                WasLastAHitP2 = false;
 
-            string[] shipTypes = { "Carrier", "Battleship", "Destroyer", "Submarine", "Gunboat" };
-            //setup arrays that can be incremented over to search for coordinates and houses bools for each spot 
-            //these will be created new each new game
-            var player1Ships = new[] {
+                LogFileName = $"Battleship_Log_{DateTime.Now.ToString("yyyyMMdd_hhmmss")}.txt";
+
+                string[] shipTypes = { "Carrier", "Battleship", "Destroyer", "Submarine", "Gunboat" };
+                //setup arrays that can be incremented over to search for coordinates and houses bools for each spot 
+                //these will be created new each new game
+                var player1Ships = new[] {
                 (ShipType: "Carrier", Coords: new List<(int, int)>(), IsHit: new bool[5], IsSunk: true),
                 (ShipType: "Battleship", Coords: new List<(int, int)>(), IsHit: new bool[4], IsSunk: true),
                 (ShipType: "Destroyer", Coords: new List<(int, int)>(), IsHit: new bool[3], IsSunk: true),
                 (ShipType: "Submarine", Coords: new List<(int, int)>(), IsHit: new bool[3], IsSunk: true),
                 (ShipType: "Gunboat", Coords: new List<(int, int)>(), IsHit: new bool[2], IsSunk: true),
             };
-            var player2Ships = new[] {
+                var player2Ships = new[] {
                 (ShipType: "Carrier", Coords: new List<(int, int)>(), IsHit: new bool[5], IsSunk: true),
                 (ShipType: "Battleship", Coords: new List<(int, int)>(), IsHit: new bool[4], IsSunk: true),
                 (ShipType: "Destroyer", Coords: new List<(int, int)>(), IsHit: new bool[3], IsSunk: true),
                 (ShipType: "Submarine", Coords: new List<(int, int)>(), IsHit: new bool[3], IsSunk: true),
                 (ShipType: "Gunboat", Coords: new List<(int, int)>(), IsHit: new bool[2], IsSunk: true),
             };
-            //setup arrays to house player turn information for storing into a file, this inclused turn count
-            //amount of hits, amount of misses and player name
-            var player1Stats = (
-                Name: "",
-                TurnsTaken: 0,
-                Hits: 0,
-                Misses: 0
-                );
-            var player2Stats = (
-                Name: "",
-                TurnsTaken: 0,
-                Hits: 0,
-                Misses: 0
-                );
+                //setup arrays to house player turn information for storing into a file, this inclused turn count
+                //amount of hits, amount of misses and player name
+                var player1Stats = (
+                    Name: "",
+                    TurnsTaken: 0,
+                    Hits: 0,
+                    Misses: 0
+                    );
+                var player2Stats = (
+                    Name: "",
+                    TurnsTaken: 0,
+                    Hits: 0,
+                    Misses: 0
+                    );
 
-            //setup array to handle the board
-            player1Board = new int[10, 10];
-            player2Board = new int[10, 10];
+                //setup array to handle the board
+                player1Board = new int[10, 10];
+                player2Board = new int[10, 10];
 
-            int gamesToWatch = 1;
-            Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine(@" ____   __  ____  ____  __    ____  ____  _  _  __  ____");
-            Console.WriteLine(@"(  _ \ / _\(_  _)(_  _)(  )  (  __)/ ___)/ )( \(  )(  _ \");
-            Console.WriteLine(@" ) _ (/    \ )(    )(  / (_/\ ) _) \___ \) __ ( )(  ) __/");
-            Console.WriteLine(@"(____/\_/\_/(__)  (__) \____/(____)(____/\_)(_/(__)(__)  ");
-            //see if player wants to play or if they just want to watch 2 computers fight it out
-            LogData($"Would you like to Play?: ", 2);
-            string isPlayerPlaying = LogData(Console.ReadLine(), 3).Trim().ToLower();
+                
+                Console.ForegroundColor = ConsoleColor.Gray;
+                Console.WriteLine(@" ____   __  ____  ____  __    ____  ____  _  _  __  ____");
+                Console.WriteLine(@"(  _ \ / _\(_  _)(_  _)(  )  (  __)/ ___)/ )( \(  )(  _ \");
+                Console.WriteLine(@" ) _ (/    \ )(    )(  / (_/\ ) _) \___ \) __ ( )(  ) __/");
+                Console.WriteLine(@"(____/\_/\_/(__)  (__) \____/(____)(____/\_)(_/(__)(__)  ");
+                //see if player wants to play or if they just want to watch 2 computers fight it out
+                LogData($"Would you like to Play?: ", 2);
+                string isPlayerPlaying = LogData(Console.ReadLine(), 3).Trim().ToLower();
 
-            //check answer of player
-            while (true)
-            {
-                if(isPlayerPlaying.Equals("yes") || isPlayerPlaying.Equals("y"))
+                //check answer of player
+                while (true && IsPlayer1Human)
                 {
-                    
-                    LogData($"What is your name human?: ", 2);
-                    player1Stats.Name = LogData(Console.ReadLine().Trim(), 3);
-                    player2Stats.Name = "Computer Player";
-                    ComputerSetup(shipTypes, player2Ships, player2Board);
-                    IsPlayer1Turn = true;
-                    SetupPhase(shipTypes, player1Ships);
-                    IsPlayer1Human = true;
-                    break;
-                }
-                else if (isPlayerPlaying.Equals("no") || isPlayerPlaying.Equals("n"))
-                {
-                    
-                    LogData("How many games should the computers play?: ", 2);
-                    string matchsToPlay = LogData(Console.ReadLine().Trim(), 3);
-                    int.TryParse(matchsToPlay, out gamesToWatch);
-                    IsPlayer1Turn = true;
-                    player1Stats.Name = "Computer Player 1";
-                    player2Stats.Name = "Computer Player 2";
-                    ComputerSetup(shipTypes, player1Ships, player1Board);
-                    ComputerSetup(shipTypes, player2Ships, player2Board);
-                    break ;
-                }
-                else
-                {
-                    LogData("I didn't understand that, would you like to play???: ",2);
-                    isPlayerPlaying = LogData(Console.ReadLine(),3).Trim().ToLower();
-                }
-            }
+                    if (isPlayerPlaying.Equals("yes") || isPlayerPlaying.Equals("y"))
+                    {
 
-            
-            
-            while (!IsGameOver)
-            {
-                TakeTurns(player1Ships, player2Ships,ref player1Stats);
-                TakeTurns(player1Ships, player2Ships, ref player2Stats);
-                //TakeTurns(player1Ships, player2Ships, player1Stats, player2Stats);
+                        LogData($"What is your name human?: ", 2);
+                        player1Stats.Name = LogData(Console.ReadLine().Trim(), 3);
+                        player2Stats.Name = "Computer Player";
+                        ComputerSetup(shipTypes, player2Ships, player2Board);
+                        IsPlayer1Turn = true;
+                        SetupPhase(shipTypes, player1Ships);
+                        break;
+                    }
+                    else if (isPlayerPlaying.Equals("no") || isPlayerPlaying.Equals("n"))
+                    {
+
+                        LogData("How many games should the computers play?: ", 2);
+                        int tempMatchs = 0;
+                        do {
+                            string matchsToPlay = LogData(Console.ReadLine().Trim(), 3);
+                            
+                            if (int.TryParse(matchsToPlay, out tempMatchs) && tempMatchs > 1)
+                            {
+                                Console.WriteLine(tempMatchs);
+                                GamesToWatch = tempMatchs;
+                            }
+                            else if (tempMatchs <= 0)
+                            {
+                                LogData("You cant pick a value lower than 1",1);
+                                LogData("Please try again: ", 2);
+                                tempMatchs = 0;
+                            }
+                            else
+                            {
+                                tempMatchs = 0;
+                                LogData("Please try again: ", 2);
+                            }
+                        }
+                        while (tempMatchs == 0);
+
+
+                        IsPlayer1Turn = true;
+                        player1Stats.Name = "Computer Player 1";
+                        player2Stats.Name = "Computer Player 2";
+                        ComputerSetup(shipTypes, player1Ships, player1Board);
+                        ComputerSetup(shipTypes, player2Ships, player2Board);
+                        IsPlayer1Human = false;
+                        break;
+                    }
+                    else
+                    {
+                        LogData("I didn't understand that, would you like to play???: ", 2);
+                        isPlayerPlaying = LogData(Console.ReadLine(), 3).Trim().ToLower();
+                    }
+                }
+
+
+
+                while (!IsGameOver)
+                {
+                    TakeTurns(player1Ships, player2Ships, ref player1Stats);
+                    TakeTurns(player1Ships, player2Ships, ref player2Stats);
+                    //TakeTurns(player1Ships, player2Ships, player1Stats, player2Stats);
+                }
+                GamesToWatch--;
             }
         }
 
