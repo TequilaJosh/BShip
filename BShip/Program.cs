@@ -14,7 +14,7 @@ namespace BattleShip
         //set boundries of the board
         public static int boardMin = 0;
         public static int boardMax = 10;
-        public static int GameSpeed = 100;
+        public static int GameSpeed = 1000;
         public static int GamesToWatch { get; set; } = 1;
         public static string LogFileName { get; set; }
         public static bool IsPlayer1Turn { get; set; } = false;
@@ -43,7 +43,7 @@ namespace BattleShip
             {
                 if (!gameThread.IsAlive && !IsGameOn)
                 {
-                    gameThread = new( new ThreadStart(NewThread));
+                    gameThread = new(new ThreadStart(NewThread));
                     IsGameOn = true;
                     gameThread.Start();
                 }
@@ -111,9 +111,23 @@ namespace BattleShip
                 {
                     LogData($"Would you like to Play?: ", 2);
                     string isPlayerPlaying = LogData(Console.ReadLine(), 3).Trim().ToLower();
+                    LogData("How fast would you like the game? speeds 1, 2 or 3?: ", 2);
+                    string gameSpeed = LogData(Console.ReadLine(), 3).Trim();
+                    switch (gameSpeed)
+                    {
+                        case "1":
+                            GameSpeed = 5000; break;
+                        case "2":
+                            GameSpeed = 2500; break;
+                        case "3":
+                            GameSpeed = 1000; break;
+                        default:
+                            LogData("I didn't quite understand that so I'm going to set it to a speed of 2:", 1);
+                            break;
+                    }
                     if (isPlayerPlaying.Equals("yes") || isPlayerPlaying.Equals("y"))
                     {
-
+                        
                         LogData($"What is your name human?: ", 2);
                         player1Stats.Name = LogData(Console.ReadLine().Trim(), 3);
                         player2Stats.Name = "Computer Player";
@@ -451,7 +465,7 @@ namespace BattleShip
                     if (targetSpaceReturnValues.Item1 == true)
                     {
                         previousTarget = player1Response;
-                        UpdateBoard(player1Board, ((int, int))player1Response);
+                        UpdateBoard(player2Board, ((int, int))player1Response);
                         PrintBoard(player2Board);
                         LogData($"Player 1 attacks {leftBoardBorder[player1Response.Value.Item2]}{player1Response.Value.Item1 + 1}", 1);
                         LogData($"Its a hit at {leftBoardBorder[player1Response.Value.Item2]}{player1Response.Value.Item1 + 1}! you hit their {targetSpaceReturnValues.Item2}.", 1);
@@ -651,25 +665,49 @@ namespace BattleShip
                 Random random = new Random();
                 string[] directions = ["North", "South", "East", "West"];
                 if (IsPlayer1Turn)
-                {   
+                {
+                    int i = 0;
                     (int, int) newTarget = Player1LastHit;
+                    Player1Direction = directions[random.Next(directions.Length)];
+                    
                     do
                     {
-                        Player1Direction = directions[random.Next(directions.Length)];
+                        
                         newTarget = MoveDirection(newTarget, Player1Direction);
+                        if (player2Board[newTarget.Item1, newTarget.Item2] == 1 || player2Board[newTarget.Item1, newTarget.Item2] == 2)
+                        {
+                            i++;
+                            if (i>5)
+                            {
+                                break;
+                            }
+                            newTarget = Player1LastHit;
+                        }
+                        
                     }
-                    while ((player2Board[newTarget.Item1, newTarget.Item2] == 1 || player2Board[newTarget.Item1, newTarget.Item2] == 2));
+                    while (newTarget == Player1LastHit);
                     return (newTarget);
                 }
                 else
                 {
+                    int i = 0;
                     (int, int) newTarget = Player2LastHit;
+                    Player2Direction = directions[random.Next(directions.Length)];
                     do
                     {
-                        Player2Direction = directions[random.Next(directions.Length)];
+                        
                         newTarget = (MoveDirection(newTarget, Player2Direction));
+                        if (player1Board[newTarget.Item1, newTarget.Item2] == 1 || player1Board[newTarget.Item1, newTarget.Item2] == 2)
+                        {
+                            i++;
+                            if (i > 5)
+                            {
+                                break;
+                            }
+                            newTarget = Player2LastHit;
+                        }
                     }
-                    while ((player1Board[newTarget.Item1, newTarget.Item2] == 1 || player1Board[newTarget.Item1, newTarget.Item2] == 2));
+                    while (newTarget == Player2LastHit);
                     return (newTarget);
                 }
             }
