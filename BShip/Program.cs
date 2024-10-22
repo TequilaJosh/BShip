@@ -5,6 +5,7 @@ using System.ComponentModel.Design;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace BattleShip
 {
@@ -13,12 +14,13 @@ namespace BattleShip
         //set boundries of the board
         public static int boardMin = 0;
         public static int boardMax = 10;
-        public static int GameSpeed = 5000;
+        public static int GameSpeed = 100;
         public static int GamesToWatch { get; set; } = 1;
         public static string LogFileName { get; set; }
         public static bool IsPlayer1Turn { get; set; } = false;
         public static bool IsPlayer1Human { get; set; } = true;
         public static bool IsGameOver { get; set; } = false;
+        public static bool IsGameOn { get; set; } = false;
         public static bool WasLastAHitP1 { get; set; }
         public static bool WasLastAHitP2 { get; set; }
         public static string Player1Direction { get; set; }
@@ -34,9 +36,22 @@ namespace BattleShip
         public static int[,] player1Board { get; set; }
 
         public static int[,] player2Board { get; set; }
-        public static void Main(string[] args)
+        public static  void Main(string[] args)
         {
+            Thread gameThread = new Thread(NewThread);
             while (GamesToWatch > 0)
+            {
+                if (!gameThread.IsAlive && !IsGameOn)
+                {
+                    gameThread = new( new ThreadStart(NewThread));
+                    IsGameOn = true;
+                    gameThread.Start();
+                }
+            }
+        }
+        public static void NewThread()
+        {
+            if (GamesToWatch > 0)
             {
                 //Set all values to base to reset the game each iteration
                 IsPlayer1Turn = false;
@@ -55,14 +70,14 @@ namespace BattleShip
                 (ShipType: "Destroyer", Coords: new List<(int, int)>(), IsHit: new bool[3], IsSunk: true),
                 (ShipType: "Submarine", Coords: new List<(int, int)>(), IsHit: new bool[3], IsSunk: true),
                 (ShipType: "Gunboat", Coords: new List<(int, int)>(), IsHit: new bool[2], IsSunk: true),
-            };
+                };
                 var player2Ships = new[] {
                 (ShipType: "Carrier", Coords: new List<(int, int)>(), IsHit: new bool[5], IsSunk: true),
                 (ShipType: "Battleship", Coords: new List<(int, int)>(), IsHit: new bool[4], IsSunk: true),
                 (ShipType: "Destroyer", Coords: new List<(int, int)>(), IsHit: new bool[3], IsSunk: true),
                 (ShipType: "Submarine", Coords: new List<(int, int)>(), IsHit: new bool[3], IsSunk: true),
                 (ShipType: "Gunboat", Coords: new List<(int, int)>(), IsHit: new bool[2], IsSunk: true),
-            };
+                };
                 //setup arrays to house player turn information for storing into a file, this inclused turn count
                 //amount of hits, amount of misses and player name
                 var player1Stats = (
@@ -89,20 +104,21 @@ namespace BattleShip
                 Console.WriteLine(@" ) _ (/    \ )(    )(  / (_/\ ) _) \___ \) __ ( )(  ) __/");
                 Console.WriteLine(@"(____/\_/\_/(__)  (__) \____/(____)(____/\_)(_/(__)(__)  ");
                 //see if player wants to play or if they just want to watch 2 computers fight it out
-                LogData($"Would you like to Play?: ", 2);
-                string isPlayerPlaying = LogData(Console.ReadLine(), 3).Trim().ToLower();
+                
 
                 //check answer of player
                 while (true && IsPlayer1Human)
                 {
+                    LogData($"Would you like to Play?: ", 2);
+                    string isPlayerPlaying = LogData(Console.ReadLine(), 3).Trim().ToLower();
                     if (isPlayerPlaying.Equals("yes") || isPlayerPlaying.Equals("y"))
                     {
 
                         LogData($"What is your name human?: ", 2);
                         player1Stats.Name = LogData(Console.ReadLine().Trim(), 3);
                         player2Stats.Name = "Computer Player";
-                        ComputerSetup(shipTypes, player2Ships, player2Board);
                         IsPlayer1Turn = true;
+                        ComputerSetup(shipTypes, player2Ships, player2Board);
                         SetupPhase(shipTypes, player1Ships);
                         break;
                     }
@@ -132,13 +148,6 @@ namespace BattleShip
                             }
                         }
                         while (tempMatchs == 0);
-
-
-                        IsPlayer1Turn = true;
-                        player1Stats.Name = "Computer Player 1";
-                        player2Stats.Name = "Computer Player 2";
-                        ComputerSetup(shipTypes, player1Ships, player1Board);
-                        ComputerSetup(shipTypes, player2Ships, player2Board);
                         IsPlayer1Human = false;
                         break;
                     }
@@ -147,6 +156,14 @@ namespace BattleShip
                         LogData("I didn't understand that, would you like to play???: ", 2);
                         isPlayerPlaying = LogData(Console.ReadLine(), 3).Trim().ToLower();
                     }
+                }
+                if (!IsPlayer1Human)
+                {
+                    IsPlayer1Turn = true;
+                    player1Stats.Name = "Computer Player 1";
+                    player2Stats.Name = "Computer Player 2";
+                    ComputerSetup(shipTypes, player1Ships, player1Board);
+                    ComputerSetup(shipTypes, player2Ships, player2Board);
                 }
 
 
@@ -157,7 +174,8 @@ namespace BattleShip
                     TakeTurns(player1Ships, player2Ships, ref player2Stats);
                     //TakeTurns(player1Ships, player2Ships, player1Stats, player2Stats);
                 }
-                GamesToWatch--;
+                GamesToWatch = GamesToWatch - 1;
+                IsGameOn = false;
             }
         }
 
@@ -759,7 +777,7 @@ namespace BattleShip
             if (checkShipsAreAllSunk)
             {
                 IsGameOver = true;
-                double hitPercent = playerstats.Item3 / playerstats.Item4;
+                double hitPercent = playerstats.Item3 / playerstats.Item4 * 100;
                 LogData($"{playerstats.Item1} Has won! they did this in {playerstats.Item2} turns with a hit% of {hitPercent}%", 2);
             }
 
