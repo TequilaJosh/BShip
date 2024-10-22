@@ -13,7 +13,7 @@ namespace BattleShip
         //set boundries of the board
         public static int boardMin = 0;
         public static int boardMax = 10;
-        public static int GameSpeed = 1000;
+        public static int GameSpeed = 5000;
         public static int GamesToWatch { get; set; } = 1;
         public static string LogFileName { get; set; }
         public static bool IsPlayer1Turn { get; set; } = false;
@@ -42,6 +42,7 @@ namespace BattleShip
                 IsPlayer1Turn = false;
                 WasLastAHitP1 = false;
                 WasLastAHitP2 = false;
+                IsGameOver = false;
 
                 LogFileName = $"Battleship_Log_{DateTime.Now.ToString("yyyyMMdd_hhmmss")}.txt";
 
@@ -223,6 +224,18 @@ namespace BattleShip
                 LogData("That square is outside the bounds of the board, please try again.", 1);
                 return null;
             }
+            else if (response.Length == 3)
+            {
+                if (int.Parse(char.ToString(response[2])) > 0)
+                {
+                    LogData("That square is outside the boundry of the board", 1);
+                    return null;
+                }
+                int letterIndex = response[0] - 'a';
+                var tuplePeg = (9, letterIndex);
+                Console.WriteLine(tuplePeg);
+                return tuplePeg;
+            }
             else if (response.Length == 2)
             {
                 //get index of letter given to target proper row
@@ -369,7 +382,7 @@ namespace BattleShip
                         if (player1Response != null)
                         {
                             (int, int) tempIntTuple = ((int,int))player1Response;
-                            if (player2Board[tempIntTuple.Item1, tempIntTuple.Item2] != 0)
+                            if (player2Board[tempIntTuple.Item1, tempIntTuple.Item2] == 1 || player2Board[tempIntTuple.Item1, tempIntTuple.Item2] == 2)
                             {
                                 LogData("You already attacked that space, please try again.", 1);
                                 player1Response = null;
@@ -746,7 +759,8 @@ namespace BattleShip
             if (checkShipsAreAllSunk)
             {
                 IsGameOver = true;
-                LogData($"{playerstats.Item1} Has won! they did this in {playerstats.Item2} turns with a hit% of {playerstats.Item3/ playerstats.Item4}", 2);
+                double hitPercent = playerstats.Item3 / playerstats.Item4;
+                LogData($"{playerstats.Item1} Has won! they did this in {playerstats.Item2} turns with a hit% of {hitPercent}%", 2);
             }
 
 
