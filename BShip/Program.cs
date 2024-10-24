@@ -14,7 +14,7 @@ namespace BattleShip
         //set boundries of the board
         public static int boardMin = 0;
         public static int boardMax = 10;
-        public static int GameSpeed = 1000;
+        public static int GameSpeed = 0;
         public static int GamesToWatch { get; set; } = 1;
         public static string LogFileName { get; set; }
         public static bool IsPlayer1Turn { get; set; } = false;
@@ -111,19 +111,23 @@ namespace BattleShip
                 {
                     LogData($"Would you like to Play?: ", 2);
                     string isPlayerPlaying = LogData(Console.ReadLine(), 3).Trim().ToLower();
-                    LogData("How fast would you like the game? speeds 1, 2 or 3?: ", 2);
-                    string gameSpeed = LogData(Console.ReadLine(), 3).Trim();
-                    switch (gameSpeed)
+                    
+                    while (GameSpeed == 0)
                     {
-                        case "1":
-                            GameSpeed = 5000; break;
-                        case "2":
-                            GameSpeed = 2500; break;
-                        case "3":
-                            GameSpeed = 1000; break;
-                        default:
-                            LogData("I didn't quite understand that so I'm going to set it to a speed of 2:", 1);
-                            break;
+                        LogData("How fast would you like the game? slow, medium or fast: ", 2);
+                        string gameSpeed = LogData(Console.ReadLine(), 3).Trim().ToLower();
+                        switch (gameSpeed)
+                        {
+                            case "slow":
+                                GameSpeed = 5000; break;
+                            case "medium":
+                                GameSpeed = 2500; break;
+                            case "fast":
+                                GameSpeed = 1000; break;
+                            default:
+                                LogData("I didn't quite understand Please try again:", 1);
+                                break;
+                        }
                     }
                     if (isPlayerPlaying.Equals("yes") || isPlayerPlaying.Equals("y"))
                     {
@@ -333,7 +337,7 @@ namespace BattleShip
                                 //check all other ships to see if current coordinate will intersect with any of them
                                 foreach (var ship in shipToSetup)
                                 {
-                                    if (ship.Item2.Contains((targetCoord.Item1, targetCoord.Item2 + i)) && ship.Item1 != shipToSetup[shipNumber].Item1)
+                                    if (ship.Item2.Contains((targetCoord.Item1 + i, targetCoord.Item2)) && ship.Item1 != shipToSetup[shipNumber].Item1)
                                     {
                                         LogData($"Your {shipToSetup[shipNumber].Item1.ToString()} can't be placed there.", 1);
                                         return shipToSetup;
@@ -758,6 +762,7 @@ namespace BattleShip
                             if (ship.Item3.All(item => item))
                             {
                                 playerShips[shipCount].Item4 = true;
+                                LogData($"you sunk their {playerShips[shipCount].Item4}",1);
                             }
                             return (true, ship.Item1);
                         }
